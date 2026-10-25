@@ -1,0 +1,148 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0b1416;
+  color: #e9dcc0;
+  font-family: Georgia, "Times New Roman", serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#unity-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #0b1416;
+  outline: none;
+  touch-action: none;
+}
+
+#loading, #problem, #rotate {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 24px;
+  background: radial-gradient(ellipse at center, #1b2a2e 0%, #0b1416 70%);
+}
+
+#loading[hidden], #problem[hidden] {
+  display: none;
+}
+
+/* The "SOVL: Gallic Wars" lockup (docs/art/logo/logo_stone_1024.png), 2.5:1. */
+.logo {
+  width: min(560px, 80vw);
+  max-height: 40vh;
+  object-fit: contain;
+  margin-bottom: 40px;
+}
+
+.bar {
+  width: min(420px, 80vw);
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(233, 220, 192, 0.15);
+  overflow: hidden;
+}
+
+#bar-fill {
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #b8742e, #f3d9a4);
+  transition: width 0.2s ease-out;
+}
+
+#status {
+  margin-top: 14px;
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+#problem p {
+  max-width: 520px;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* Phones and tablets: the layouts are landscape only, and browsers there cannot lock the orientation. */
+#rotate {
+  display: none;
+  z-index: 10;
+}
+
+#rotate .phone {
+  width: 40px;
+  height: 70px;
+  border: 3px solid #e9dcc0;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  animation: turn 2s ease-in-out infinite;
+}
+
+@keyframes turn {
+  0%, 30% { transform: rotate(0deg); }
+  60%, 100% { transform: rotate(-90deg); }
+}
+
+@media (orientation: portrait) {
+  body.mobile #rotate {
+    display: flex;
+  }
+}
+
+/* The full screen button: top centre is clear in both the menu and the army builder. Faint until pointed at. */
+#fullscreen {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(233, 220, 192, 0.35);
+  background: rgba(11, 20, 22, 0.55);
+  color: #e9dcc0;
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+#fullscreen:hover, #fullscreen:focus-visible {
+  opacity: 1;
+}
+
+#fullscreen[hidden], #fullscreen-hint[hidden] {
+  display: none;
+}
+
+#fullscreen-hint {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  max-width: min(420px, 90vw);
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(233, 220, 192, 0.35);
+  background: rgba(11, 20, 22, 0.92);
+  color: #e9dcc0;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+}

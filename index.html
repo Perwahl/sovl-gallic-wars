@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0b1416">
+    <meta name="description" content="SOVL: Gallic Wars. Raise a Roman or a Gallic army and fight it out in your browser.">
+    <title>SOVL: Gallic Wars</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="TemplateData/icon-32.png">
+    <link rel="icon" type="image/png" sizes="64x64" href="TemplateData/icon-64.png">
+    <link rel="apple-touch-icon" href="TemplateData/icon-256.png">
+    <link rel="manifest" href="TemplateData/manifest.webmanifest">
+    <link rel="stylesheet" href="TemplateData/style.css">
+  </head>
+  <body>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+
+    <div id="loading">
+      <img class="logo" src="TemplateData/logo.png" alt="SOVL: Gallic Wars">
+      <div class="bar"><div id="bar-fill"></div></div>
+      <div id="status">Loading…</div>
+    </div>
+
+    <div id="problem" hidden>
+      <img class="logo" src="TemplateData/logo.png" alt="SOVL: Gallic Wars">
+      <p id="problem-text"></p>
+    </div>
+
+    <div id="rotate">
+      <div class="phone"></div>
+      <p>Turn your device sideways</p>
+    </div>
+
+    <button id="fullscreen" type="button" title="Full screen" aria-label="Full screen" hidden>
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div id="fullscreen-hint" hidden>For full screen on iPhone: tap Share, then <b>Add to Home Screen</b>, and open SOVL from there.</div>
+
+    <script>
+      // The site holds two builds of the same version: desktop/ (DXT textures) and mobile/ (ETC2 textures, for phone
+      // and tablet GPUs, which cannot read DXT). This page picks one; ?variant=desktop|mobile forces either.
+      // Both run from this page's address, so they share the browser storage that holds saved army lists. Keep the
+      // page at the same address for good: moving it loses every visitor's lists.
+      (function () {
+        var version = "0.1.0";
+        // Stamped by BuildScript.AssembleWebSite with each build's time: the files' cache key. The version alone is not
+        // enough - every build of 1.33.1 shared it, and a browser holding one build's code with another's data crashes.
+        var build = "20261025122817";
+        var cacheKey = build.indexOf("__SOVL_") === 0 ? version : build;
+        // Unity names each file after its variant: desktop.data.br, mobile.wasm.br, ...
+        var suffix = {
+          data: "mobile.data.unityweb".replace(/^[^.]*/, ""),
+          framework: "mobile.framework.js.unityweb".replace(/^[^.]*/, ""),
+          code: "mobile.wasm.unityweb".replace(/^[^.]*/, ""),
+        };
+
+        var canvas = document.getElementById("unity-canvas");
+
+        // Full screen: browsers allow it only from a tap or click. Phones and tablets go full screen (and landscape,
+        // where the browser can lock it) on their first tap in the game; the button at the top brings it back after
+        // leaving it. iPhone Safari has no full screen for pages, so there the button explains Add to Home Screen,
+        // which opens the page without browser bars (the manifest asks for that).
+        function setupFullscreen() {
+          var button = document.getElementById("fullscreen");
+          var hint = document.getElementById("fullscreen-hint");
+          var root = document.documentElement;
+          var request = root.requestFullscreen || root.webkitRequestFullscreen;
+          var launchedFromHomeScreen = navigator.standalone ||
+            window.matchMedia("(display-mode: fullscreen), (display-mode: standalone)").matches;
+          if (launchedFromHomeScreen) {
+            return;
+          }
+
+          function isFull() {
+            return !!(document.fullscreenElement || document.webkitFullscreenElement);
+          }
+          function lockLandscape() {
+            if (mobile && screen.orientation && screen.orientation.lock) {
+              screen.orientation.lock("landscape").catch(function () {});
+            }
+          }
+          function enter() {
+            if (isFull()) {
+              return;
+            }
+            var entering = request.call(root, { navigationUI: "hide" });
+            if (entering && entering.then) {
+              entering.then(lockLandscape, function () {});
+            } else {
+              lockLandscape();
+            }
+          }
+
+          if (request) {
+            var update = function () { button.hidden = isFull(); };
+            button.addEventListener("click", enter);
+            document.addEventListener("fullscreenchange", update);
+            document.addEventListener("webkitfullscreenchange", update);
+            if (mobile) {
+              canvas.addEventListener("pointerup", function first() {
+                canvas.removeEventListener("pointerup", first);
+                enter();
+              });
+            }
+            update();
+          } else if (mobile) {
+            button.addEventListener("click", function () { hint.hidden = !hint.hidden; });
+            hint.addEventListener("click", function () { hint.hidden = true; });
+            button.hidden = false;
+          }
+        }
+
+        var loading = document.getElementById("loading");
+        var barFill = document.getElementById("bar-fill");
+        var status = document.getElementById("status");
+
+        function problem(text) {
+          loading.hidden = true;
+          document.getElementById("problem-text").textContent = text;
+          document.getElementById("problem").hidden = false;
+        }
+
+        var ua = navigator.userAgent;
+        var mobile = (navigator.userAgentData && navigator.userAgentData.mobile) ||
+          /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ||
+          (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1); // iPadOS reports itself as a Mac
+        if (mobile) {
+          document.body.classList.add("mobile");
+        }
+
+        var gl = document.createElement("canvas").getContext("webgl2");
+        if (!gl) {
+          problem("Your browser can't run the army builder: it needs WebGL 2. Try an up-to-date Chrome, Edge, Firefox or Safari.");
+          return;
+        }
+
+        var params = new URLSearchParams(location.search);
+        var variant = params.get("variant") || (mobile ? "mobile" : "desktop");
+        // A phone whose GPU lacks ETC2 would decompress every texture in software; desktop textures are the lesser evil.
+        if (variant === "mobile" && !params.get("variant") && !gl.getExtension("WEBGL_compressed_texture_etc")) {
+          variant = "desktop";
+        }
+
+        function url(file) {
+          return variant + "/Build/" + variant + file + "?v=" + encodeURIComponent(cacheKey);
+        }
+
+        var config = {
+          dataUrl: url(suffix.data),
+          frameworkUrl: url(suffix.framework),
+          codeUrl: url(suffix.code),
+          streamingAssetsUrl: variant + "/StreamingAssets",
+          companyName: "DalenStudios",
+          productName: "Legio",
+          productVersion: version,
+          // Saved army lists are files in persistentDataPath; this writes them through to the browser's storage.
+          autoSyncPersistentDataPath: true,
+          // Unity keeps the files in the browser's storage; asking the server each load (a cheap 304 when unchanged)
+          // keeps code and data from the same build.
+          cacheControl: function () { return "must-revalidate"; },
+          // A 4K screen at full density costs more than it shows.
+          devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+          showBanner: function (message, type) {
+            if (type === "error") {
+              problem(message);
+            } else {
+              console.warn(message);
+            }
+          },
+        };
+
+        var script = document.createElement("script");
+        script.src = url(".loader.js");
+        script.onerror = function () {
+          problem("The army builder could not be downloaded. Check your connection and reload the page.");
+        };
+        script.onload = function () {
+          createUnityInstance(canvas, config, function (progress) {
+            barFill.style.width = Math.round(progress * 100) + "%";
+            status.textContent = progress < 0.9 ? "Loading… " + Math.round(progress * 100) + "%" : "Starting…";
+          }).then(function (instance) {
+            // For the console: unityInstance.SendMessage("SOVLWeb", "Report") (see WebDiagnostics.cs).
+            window.unityInstance = instance;
+            loading.hidden = true;
+            setupFullscreen();
+          }).catch(function (message) {
+            problem(String(message));
+          });
+        };
+        document.body.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>
